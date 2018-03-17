@@ -1,0 +1,8 @@
+# NeON Build File (http://github.com/c4s4/neon)
+
+extends:
+- c4s4/build/golang.yml
+
+properties:
+  NAME:    'goride'
+  VERSION: '1.0.0'
