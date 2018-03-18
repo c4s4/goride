@@ -11,10 +11,7 @@ import (
 	"sort"
 )
 
-// choose algorithm for rides assignation:
-// - assignRidesSort
-// - assignRidesValue
-var assign = assignRidesSort
+var assign func(city *City, rides []*Ride) []*Car
 
 func abs(x int) int {
 	if x < 0 {
@@ -309,11 +306,20 @@ func processDirectory(input, output string) error {
 }
 
 func main() {
-	if len(os.Args) != 3 {
-		fmt.Println("You must pass input and output directories")
+	if len(os.Args) != 4 {
+		fmt.Println("You must pass algorithm, input and output directories")
 		os.Exit(1)
 	}
-	err := processDirectory(os.Args[1], os.Args[2])
+	algo := os.Args[1]
+	if algo == "sort" {
+		assign = assignRidesSort
+	} else if algo == "value" {
+		assign = assignRidesValue
+	} else {
+		fmt.Println("Algorithm must be one of 'sort' and 'value'")
+		os.Exit(2)
+	}
+	err := processDirectory(os.Args[2], os.Args[3])
 	if err != nil {
 		fmt.Println("ERROR: " + err.Error())
 	}

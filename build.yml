@@ -7,7 +7,9 @@ extends:
 properties:
   NAME:     'goride'
   VERSION:  '1.0.0'
-  RUN_ARGS: ['examples', =BUILD_DIR]
+  # algo : 'sort' or 'value'
+  ALGO:     'value'
+  RUN_ARGS: [=ALGO, 'examples', =BUILD_DIR]
 
 targets:
 
