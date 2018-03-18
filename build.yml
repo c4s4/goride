@@ -7,9 +7,13 @@ extends:
 properties:
   NAME:     'goride'
   VERSION:  '1.0.0'
-  # algo : 'sort' or 'value'
-  ALGO:     'value'
-  RUN_ARGS: [=ALGO, 'examples', =BUILD_DIR]
+  RUN_ARGS: ['1.0', '2.5', 'examples', =BUILD_DIR]
+  A_START: 0.8
+  A_END:   1.2
+  A_STEP:  0.1
+  B_START: 2.0
+  B_END:   3.0
+  B_STEP:  0.1
 
 targets:
 
@@ -19,3 +23,34 @@ targets:
     steps:
     - mkdir: =BUILD_DIR
     - super:
+
+  search:
+    doc: Search for best alpha and beta values
+    depends: clean
+    steps:
+    - mkdir: =BUILD_DIR
+    - |
+      alphas = []
+      for a=A_START; a<=A_END; a+=A_STEP {
+        alphas += [a]
+      }
+      betas = []
+      for b=B_START; b<=B_END; b+=B_STEP {
+        betas += [b]
+      }
+    - for: beta
+      in:  betas
+      do:
+      - for: alpha
+        in:  alphas
+        do:
+        - $: ['go', 'run', 'goride.go', '={alpha}', '={beta}', 'examples', =BUILD_DIR]
+          3x: true
+        - read: '={BUILD_DIR}/README'
+          to:   result
+        - |
+          lines = split(result, "\n")
+          last = lines[len(lines)-2]
+          parts = split(last, " ")
+          score = parts[len(parts)-1]
+        - print: '={alpha};={beta};={score}'

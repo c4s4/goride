@@ -11,7 +11,8 @@ import (
 	"sort"
 )
 
-var assign func(city *City, rides []*Ride) []*Car
+var alpha = 1.0
+var beta  = 2.5
 
 func abs(x int) int {
 	if x < 0 {
@@ -139,7 +140,7 @@ type Move struct {
 	Start int
 	End   int
 	Score int
-	Value float32
+	Value float64
 }
 
 func NewMove(car *Car, ride *Ride) *Move {
@@ -152,7 +153,7 @@ func NewMove(car *Car, ride *Ride) *Move {
 	if end <= ride.End {
 		score += ride.Len
 	}
-	value := float32(score)/float32(end-car.T) - (0.1*float32(end))/float32(ride.City.Steps)
+	value := alpha*float64(score)/float64(end-car.T) - beta*float64(end)/float64(ride.City.Steps)
 	move := Move{
 		Car:   car,
 		Ride:  ride,
@@ -265,7 +266,7 @@ func processFile(file, input, output string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	cars := assign(city, rides)
+	cars := assignRidesValue(city, rides)
 	duration := time.Since(start)
 	fmt.Printf("  duration: %s\n", duration)
 	score := computeScore(cars)
@@ -306,20 +307,20 @@ func processDirectory(input, output string) error {
 }
 
 func main() {
-	if len(os.Args) != 4 {
-		fmt.Println("You must pass algorithm, input and output directories")
+	if len(os.Args) != 5 {
+		fmt.Println("You must pass alpha, beta, input and output directories")
 		os.Exit(1)
 	}
-	algo := os.Args[1]
-	if algo == "sort" {
-		assign = assignRidesSort
-	} else if algo == "value" {
-		assign = assignRidesValue
-	} else {
-		fmt.Println("Algorithm must be one of 'sort' and 'value'")
-		os.Exit(2)
+	var err error
+	alpha, err = strconv.ParseFloat(os.Args[1], 64)
+	if err != nil {
+		fmt.Println("ERROR: " + err.Error())
 	}
-	err := processDirectory(os.Args[2], os.Args[3])
+	beta, err = strconv.ParseFloat(os.Args[2], 64)
+	if err != nil {
+		fmt.Println("ERROR: " + err.Error())
+	}
+	err = processDirectory(os.Args[3], os.Args[4])
 	if err != nil {
 		fmt.Println("ERROR: " + err.Error())
 	}
