@@ -1,5 +1,296 @@
 package main
 
+import (
+	"os"
+	"io/ioutil"
+	"fmt"
+	"strconv"
+	"strings"
+	"path/filepath"
+	"time"
+)
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+func max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
+
+func distance(a, b, x, y int) int {
+	return abs(x-a) + abs(y-b)
+}
+
+func parseLine(line string, length int) ([]int, error) {
+	fields := strings.Split(line, " ")
+	if len(fields) != length {
+		return nil, fmt.Errorf("bad line length")
+	}
+	ints := make([]int, length)
+	for i := 0; i < length; i++ {
+		var err error
+		ints[i], err = strconv.Atoi(fields[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return ints, nil
+}
+
+type City struct {
+	Rows  int
+	Cols  int
+	Cars  int
+	Rides int
+	Bonus int
+	Steps int
+}
+
+func NewCity(line string) (*City, error) {
+	fields, err := parseLine(line, 6)
+	if err != nil {
+		return nil, err
+	}
+	city := City{
+		Rows:  fields[0],
+		Cols:  fields[1],
+		Cars:  fields[2],
+		Rides: fields[3],
+		Bonus: fields[4],
+		Steps: fields[5],
+	}
+	return &city, nil
+}
+
+type Ride struct {
+	Index int
+	A     int
+	B     int
+	X     int
+	Y     int
+	Start int
+	End   int
+	Len   int
+	City  *City
+}
+
+func NewRide(index int, city *City, line string) (*Ride, error) {
+	fields, err := parseLine(line, 6)
+	if err != nil {
+		return nil, err
+	}
+	ride := Ride{
+		Index: index,
+		A:     fields[0],
+		B:     fields[1],
+		X:     fields[2],
+		Y:     fields[3],
+		Start: fields[4],
+		End:   fields[5],
+		Len:   distance(fields[0], fields[1], fields[2], fields[3]),
+		City:  city,
+	}
+	return &ride, nil
+}
+
+type Car struct {
+	Index int
+	Moves []*Move
+	X     int
+	Y     int
+	T     int
+}
+
+func (c *Car) Add(move *Move) {
+	c.Moves = append(c.Moves, move)
+	c.X = move.X
+	c.Y = move.Y
+	c.T = move.End
+}
+
+func (c *Car) String() string {
+	b := strings.Builder{}
+	b.WriteString(strconv.Itoa(c.Index))
+	b.WriteString(" ")
+	for i := 0; i < len(c.Moves); i++ {
+		b.WriteString(" ")
+		b.WriteString(strconv.Itoa(c.Moves[i].Ride.Index))
+	}
+	return b.String()
+}
+
+type Move struct {
+	Car   *Car
+	Ride  *Ride
+	A     int
+	B     int
+	X     int
+	Y     int
+	Start int
+	End   int
+	Score int
+	Value float32
+}
+
+func NewMove(car *Car, ride *Ride) *Move {
+	score := 0
+	begin := max(car.T + distance(car.X, car.Y, ride.A, ride.B), ride.Start)
+	end := begin + ride.Len
+	if begin <= ride.Start {
+		score += ride.City.Bonus
+	}
+	if end <= ride.End {
+		score += ride.Len
+	}
+	value := float32(score) / float32(end - car.T) - (0.1 * float32(end)) / float32(ride.City.Steps)
+	move := Move {
+		Car: car,
+		Ride: ride,
+		A: car.X,
+		B: car.Y,
+		X: ride.X,
+		Y: ride.Y,
+		Start: car.T,
+		End: end,
+		Score: score,
+		Value: value,
+	}
+	return &move
+}
+
+func parse(source string) (*City, []*Ride, error) {
+	lines := strings.Split(strings.TrimSpace(source), "\n")
+	city, err := NewCity(lines[0])
+	if err != nil {
+		return nil, nil, err
+	}
+	rides := make([]*Ride, city.Rides)
+	for i := 0; i< city.Rides; i++ {
+		ride, err := NewRide(i, city, lines[i+1])
+		if err != nil {
+			return nil, nil, err
+		}
+		rides[i] = ride
+	}
+	return city, rides, nil
+}
+
+func assignRides(city *City, rides []*Ride) []*Car {
+	cars := make([]*Car, city.Cars)
+	remaining := make([]*Ride, len(rides))
+	copy(rides, remaining)
+	for i:=0; i<city.Cars; i++ {
+		car := &Car{Index: i}
+		cars[i] = car
+		for car.T < city.Steps && len(remaining) > 0 {
+			var best *Move
+			var index int
+			for i, ride := range remaining {
+				move := NewMove(car, ride)
+				if best == nil || best.Value < move.Value {
+					best = move
+					index = i
+				}
+			}
+			remaining[index] = remaining[len(remaining)-1]
+			remaining = remaining[:len(remaining)-1]
+		}
+	}
+	return cars
+}
+
+func writeFile(cars []*Car, file, output string) error {
+	result := strings.Builder{}
+	for _, car := range cars {
+		result.WriteString(car.String())
+		result.WriteString("\n")
+	}
+	path := filepath.Join(output, file[:len(file)-3]+".out")
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	f.WriteString(result.String())
+	return nil
+}
+
+func computeScore(cars []*Car) int {
+	score := 0
+	for _, car := range cars {
+		for _, move := range car.Moves {
+			score += move.Score
+		}
+	}
+	return score
+}
+
+func processFile(file, input, output string) (int, error) {
+	fmt.Printf("%s:\n", file)
+	start := time.Now()
+	path := filepath.Join(input, file)
+	bytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+	source := strings.TrimSpace(string(bytes))
+	city, rides, err := parse(source)
+	if err != nil {
+		return 0, err
+	}
+	cars := assignRides(city, rides)
+	duration := time.Since(start)
+	fmt.Printf("  duration: %s", duration)
+	score := computeScore(cars)
+	fmt.Printf("  score: %d", score)
+	if err := writeFile(cars, file, output); err != nil {
+		return 0, err
+	}
+	return score, nil
+}
+
+func processDirectory(input, output string) error {
+	files, err := ioutil.ReadDir(input)
+	if err != nil {
+		return err
+	}
+	score := 0
+	report := strings.Builder{}
+	for _, file := range files {
+		s, err := processFile(file.Name(), input, output)
+		if err != nil {
+			return err
+		}
+		line := fmt.Sprintf("%-20v %d", file.Name()+":", s)
+		report.WriteString(line)
+		report.WriteRune('\n')
+		score += s
+	}
+	line := fmt.Sprintf("%-20v %d", "total:", score)
+	report.WriteString(line)
+	report.WriteRune('\n')
+	path := filepath.Join(output, "README")
+	err = ioutil.WriteFile(path, []byte(report.String()), 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func main() {
-	println("Hello World!")
+	if len(os.Args) != 3 {
+		fmt.Println("You must pass input and output directories")
+		os.Exit(1)
+	}
+	err := processDirectory(os.Args[1], os.Args[2])
+	if err != nil {
+		fmt.Println("ERROR: "+err.Error())
+	}
 }
