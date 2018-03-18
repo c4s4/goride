@@ -9,11 +9,12 @@ properties:
   VERSION:  '1.0.0'
   RUN_ARGS: ['examples', =BUILD_DIR]
   A_START: 0.7
-  A_END:   0.9
-  A_STEP:  0.05
+  A_END:   0.8
+  A_STEP:  0.1
   B_START: 2.1
-  B_END:   2.3
-  B_STEP:  0.05
+  B_END:   2.2
+  B_STEP:  0.1
+  THREADS: =_NCPU
 
 targets:
 
@@ -30,27 +31,28 @@ targets:
     steps:
     - mkdir: =BUILD_DIR
     - |
-      alphas = []
+      couples = []
       for a=A_START; a<=A_END; a+=A_STEP {
-        alphas += [a]
+        for b=B_START; b<=B_END; b+=B_STEP {
+          couples += [[a, b]]
+        }
       }
-      betas = []
-      for b=B_START; b<=B_END; b+=B_STEP {
-        betas += [b]
-      }
-    - for: beta
-      in:  betas
-      do:
-      - for: alpha
-        in:  alphas
-        do:
-        - $: ['go', 'run', 'goride.go', '-alpha', '={alpha}', '-beta', '={beta}', 'examples', =BUILD_DIR]
-          3x: true
-        - read: '={BUILD_DIR}/README'
-          to:   result
-        - |
-          lines = split(result, "\n")
-          last = lines[len(lines)-2]
-          parts = split(last, " ")
-          score = parts[len(parts)-1]
-        - print: '={alpha};={beta};={score}'
+      report = ""
+    - threads: =THREADS
+      input:   =couples
+      steps:
+      - 'alpha = _input[0]'
+      - 'beta  = _input[1]'
+      - $: ['go', 'run', 'goride.go', '-alpha', '={alpha}', '-beta', '={beta}', 'examples', =BUILD_DIR]
+        3x: true
+      - read: '={BUILD_DIR}/README'
+        to:   result
+      - |
+        lines = split(result, "\n")
+        last = lines[len(lines)-2]
+        parts = split(last, " ")
+        score = parts[len(parts)-1]
+      - '_output = toString(alpha)+";"+toString(beta)+";"+toString(score)'
+      - print: =_output
+    - write: '={BUILD_DIR}/results.csv'
+      text:  ={join(_output, "\n")}
