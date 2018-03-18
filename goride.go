@@ -9,10 +9,11 @@ import (
 	"strings"
 	"time"
 	"sort"
+	"flag"
 )
 
-var alpha = 1.0
-var beta  = 2.5
+var alpha = 0.8
+var beta  = 2.2
 
 func abs(x int) int {
 	if x < 0 {
@@ -307,20 +308,17 @@ func processDirectory(input, output string) error {
 }
 
 func main() {
-	if len(os.Args) != 5 {
-		fmt.Println("You must pass alpha, beta, input and output directories")
+	flag.Float64Var(&alpha, "alpha", alpha, "alpha constant")
+	flag.Float64Var(&beta, "beta", beta, "beta constant")
+	flag.Parse()
+	args := flag.Args()
+	if len(args) != 2 {
+		fmt.Println("You must pass input and output directories on command line")
 		os.Exit(1)
 	}
-	var err error
-	alpha, err = strconv.ParseFloat(os.Args[1], 64)
-	if err != nil {
-		fmt.Println("ERROR: " + err.Error())
-	}
-	beta, err = strconv.ParseFloat(os.Args[2], 64)
-	if err != nil {
-		fmt.Println("ERROR: " + err.Error())
-	}
-	err = processDirectory(os.Args[3], os.Args[4])
+	input := args[0]
+	output := args[1]
+	err := processDirectory(input, output)
 	if err != nil {
 		fmt.Println("ERROR: " + err.Error())
 	}

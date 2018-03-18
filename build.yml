@@ -7,13 +7,13 @@ extends:
 properties:
   NAME:     'goride'
   VERSION:  '1.0.0'
-  RUN_ARGS: ['1.0', '2.5', 'examples', =BUILD_DIR]
-  A_START: 0.8
-  A_END:   1.2
-  A_STEP:  0.1
-  B_START: 2.0
-  B_END:   3.0
-  B_STEP:  0.1
+  RUN_ARGS: ['examples', =BUILD_DIR]
+  A_START: 0.7
+  A_END:   0.9
+  A_STEP:  0.05
+  B_START: 2.1
+  B_END:   2.3
+  B_STEP:  0.05
 
 targets:
 
@@ -44,7 +44,7 @@ targets:
       - for: alpha
         in:  alphas
         do:
-        - $: ['go', 'run', 'goride.go', '={alpha}', '={beta}', 'examples', =BUILD_DIR]
+        - $: ['go', 'run', 'goride.go', '-alpha', '={alpha}', '-beta', '={beta}', 'examples', =BUILD_DIR]
           3x: true
         - read: '={BUILD_DIR}/README'
           to:   result
