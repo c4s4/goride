@@ -1,8 +1,19 @@
 # NeON Build File (http://github.com/c4s4/neon)
 
+default: run
 extends:
 - c4s4/build/golang.yml
 
 properties:
-  NAME:    'goride'
-  VERSION: '1.0.0'
+  NAME:     'goride'
+  VERSION:  '1.0.0'
+  RUN_ARGS: ['examples', =BUILD_DIR]
+
+targets:
+
+  run:
+    doc: 'Run ride challenge'
+    depends: clean
+    steps:
+    - mkdir: =BUILD_DIR
+    - super:
