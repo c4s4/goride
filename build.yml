@@ -8,13 +8,14 @@ properties:
   NAME:     'goride'
   VERSION:  '1.0.0'
   RUN_ARGS: ['examples', =BUILD_DIR]
-  A_START: 0.7
-  A_END:   0.8
-  A_STEP:  0.1
-  B_START: 2.1
-  B_END:   2.2
-  B_STEP:  0.1
-  THREADS: =_NCPU
+  A_START:  0.7
+  A_END:    0.8
+  A_STEP:   0.1
+  B_START:  2.1
+  B_END:    2.2
+  B_STEP:   0.1
+  THREADS:  =_NCPU
+  COLSEP:   ' '
 
 targets:
 
@@ -52,7 +53,7 @@ targets:
         last = lines[len(lines)-2]
         parts = split(last, " ")
         score = parts[len(parts)-1]
-      - '_output = toString(alpha)+";"+toString(beta)+";"+toString(score)'
+      - '_output = toString(alpha)+COLSEP+toString(beta)+COLSEP+toString(score)'
       - print: =_output
-    - write: '={BUILD_DIR}/results.csv'
+    - write: '={BUILD_DIR}/results.dat'
       text:  ={join(_output, "\n")}
