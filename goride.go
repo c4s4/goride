@@ -1,14 +1,19 @@
 package main
 
 import (
-	"os"
-	"io/ioutil"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
-	"path/filepath"
 	"time"
+	"sort"
+	"flag"
 )
+
+var alpha = 0.8
+var beta  = 2.2
 
 func abs(x int) int {
 	if x < 0 {
@@ -136,12 +141,12 @@ type Move struct {
 	Start int
 	End   int
 	Score int
-	Value float32
+	Value float64
 }
 
 func NewMove(car *Car, ride *Ride) *Move {
 	score := 0
-	begin := max(car.T + distance(car.X, car.Y, ride.A, ride.B), ride.Start)
+	begin := max(car.T+distance(car.X, car.Y, ride.A, ride.B), ride.Start)
 	end := begin + ride.Len
 	if begin <= ride.Start {
 		score += ride.City.Bonus
@@ -149,16 +154,16 @@ func NewMove(car *Car, ride *Ride) *Move {
 	if end <= ride.End {
 		score += ride.Len
 	}
-	value := float32(score) / float32(end - car.T) - (0.1 * float32(end)) / float32(ride.City.Steps)
-	move := Move {
-		Car: car,
-		Ride: ride,
-		A: car.X,
-		B: car.Y,
-		X: ride.X,
-		Y: ride.Y,
+	value := alpha*float64(score)/float64(end-car.T) - beta*float64(end)/float64(ride.City.Steps)
+	move := Move{
+		Car:   car,
+		Ride:  ride,
+		A:     car.X,
+		B:     car.Y,
+		X:     ride.X,
+		Y:     ride.Y,
 		Start: car.T,
-		End: end,
+		End:   end,
 		Score: score,
 		Value: value,
 	}
@@ -172,7 +177,7 @@ func parse(source string) (*City, []*Ride, error) {
 		return nil, nil, err
 	}
 	rides := make([]*Ride, city.Rides)
-	for i := 0; i< city.Rides; i++ {
+	for i := 0; i < city.Rides; i++ {
 		ride, err := NewRide(i, city, lines[i+1])
 		if err != nil {
 			return nil, nil, err
@@ -182,25 +187,42 @@ func parse(source string) (*City, []*Ride, error) {
 	return city, rides, nil
 }
 
-func assignRides(city *City, rides []*Ride) []*Car {
+func assignRidesSort(city *City, rides []*Ride) []*Car {
+	sort.Slice(rides, func(i, j int) bool {
+		return rides[i].Start < rides[j].Start
+	})
 	cars := make([]*Car, city.Cars)
-	remaining := make([]*Ride, len(rides))
-	copy(rides, remaining)
-	for i:=0; i<city.Cars; i++ {
+	for i := 0; i < city.Cars; i++ {
+		cars[i] = &Car{Index: i}
+	}
+	index := 0
+	for _, ride := range rides {
+		car := cars[index]
+		move := NewMove(car, ride)
+		car.Add(move)
+		index = (index + 1) % city.Cars
+	}
+	return cars
+}
+
+func assignRidesValue(city *City, rides []*Ride) []*Car {
+	cars := make([]*Car, city.Cars)
+	for i := 0; i < city.Cars; i++ {
 		car := &Car{Index: i}
 		cars[i] = car
-		for car.T < city.Steps && len(remaining) > 0 {
+		for car.T < city.Steps && len(rides) > 0 {
 			var best *Move
 			var index int
-			for i, ride := range remaining {
+			for i, ride := range rides {
 				move := NewMove(car, ride)
 				if best == nil || best.Value < move.Value {
 					best = move
 					index = i
 				}
 			}
-			remaining[index] = remaining[len(remaining)-1]
-			remaining = remaining[:len(remaining)-1]
+			rides[index] = rides[len(rides)-1]
+			rides = rides[:len(rides)-1]
+			car.Add(best)
 		}
 	}
 	return cars
@@ -245,11 +267,11 @@ func processFile(file, input, output string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	cars := assignRides(city, rides)
+	cars := assignRidesValue(city, rides)
 	duration := time.Since(start)
-	fmt.Printf("  duration: %s", duration)
+	fmt.Printf("  duration: %s\n", duration)
 	score := computeScore(cars)
-	fmt.Printf("  score: %d", score)
+	fmt.Printf("  score: %d\n", score)
 	if err := writeFile(cars, file, output); err != nil {
 		return 0, err
 	}
@@ -273,6 +295,7 @@ func processDirectory(input, output string) error {
 		report.WriteRune('\n')
 		score += s
 	}
+	fmt.Println("total:", score)
 	line := fmt.Sprintf("%-20v %d", "total:", score)
 	report.WriteString(line)
 	report.WriteRune('\n')
@@ -285,12 +308,18 @@ func processDirectory(input, output string) error {
 }
 
 func main() {
-	if len(os.Args) != 3 {
-		fmt.Println("You must pass input and output directories")
+	flag.Float64Var(&alpha, "alpha", alpha, "alpha constant")
+	flag.Float64Var(&beta, "beta", beta, "beta constant")
+	flag.Parse()
+	args := flag.Args()
+	if len(args) != 2 {
+		fmt.Println("You must pass input and output directories on command line")
 		os.Exit(1)
 	}
-	err := processDirectory(os.Args[1], os.Args[2])
+	input := args[0]
+	output := args[1]
+	err := processDirectory(input, output)
 	if err != nil {
-		fmt.Println("ERROR: "+err.Error())
+		fmt.Println("ERROR: " + err.Error())
 	}
 }
