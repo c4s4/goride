@@ -57,3 +57,14 @@ targets:
       - print: =_output
     - write: '={BUILD_DIR}/results.dat'
       text:  ={join(_output, "\n")}
+
+  gnuplot:
+    doc: Run gnuplot to see result
+    steps:
+    - write: '={BUILD_DIR}/gnuplot.plt'
+      text: |
+        set dgrid3d 50,50 qnorm 2
+        set hidden3d
+        splot 'results.dat' with lines palette
+    - chdir: =BUILD_DIR
+    - $: ['gnuplot', '-p', 'gnuplot.plt']

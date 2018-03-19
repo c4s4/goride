@@ -17,8 +17,10 @@ Results
 
 Target *search* scans evaluation function constants for best results. It outputs a file *results.dat* in *build* directory that you can open in *gnuplot*. To display data file, launch *gnuplot* and type following commands :
 
-```
-splot 'results.dat'
+```gnuplot
+set dgrid3d 50,50 qnorm 2
+set hidden3d
+splot 'results.dat' with lines palette
 ```
 
 This shoud open a window and display something like:
